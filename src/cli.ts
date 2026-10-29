@@ -4,6 +4,7 @@ import * as p from "./pipeline.js";
 import { sendApproved } from "./sender.js";
 import { draftFollowups } from "./followups.js";
 import { listInbox, markHandled, processReplies } from "./replies.js";
+import { startDashboard } from "./dashboard.js";
 import { serve } from "./unsubscribe.js";
 
 const USAGE = `Commands:
@@ -20,6 +21,7 @@ const USAGE = `Commands:
   inbox [campaignId]                replies that need you, with a suggested answer
   handled <replyId>                 mark a reply as dealt with
   followups <campaignId>            draft due follow-ups (then review and approve)
+  dashboard                         review drafts and replies in the browser
   serve                             run the unsubscribe server
   suppress <email>`;
 
@@ -77,6 +79,9 @@ async function main(): Promise<boolean> {
     case "followups":
       console.log(`${await draftFollowups(Number(a[0]))} follow-ups drafted`);
       break;
+    case "dashboard":
+      startDashboard();
+      return true;
     case "serve":
       serve();
       return true;

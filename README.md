@@ -25,6 +25,13 @@ Change targeting: edit the JSON, then `npm run agent campaign:icp 1 campaigns/va
 
 Any VPS with Docker (Namecheap VPS works). Shared hosting will not.
 
+## Dashboard
+
+    npm run agent dashboard         # http://127.0.0.1:4000
+
+Review drafts (edit, approve, reject), read replies with suggested answers, and see counts per status. Needs DASHBOARD_PASSWORD (12+ characters, any username).
+It binds to localhost. On a VPS, reach it with `ssh -L 4000:127.0.0.1:4000 user@server` or put it behind an HTTPS reverse proxy. Never expose it over plain HTTP, the password travels with every request.
+
 ## Sending
 
 - `send` is a dry run unless `--live`. Live mode refuses to start if SMTP, sender identity, postal address or UNSUB_SECRET is missing.

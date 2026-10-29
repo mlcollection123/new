@@ -93,6 +93,14 @@ export async function approve(messageId: number | "all", campaignId?: number): P
   return rowCount ?? 0;
 }
 
+export async function editDraft(messageId: number, subject: string, body: string): Promise<void> {
+  await pool.query("UPDATE messages SET subject=$2, body=$3 WHERE id=$1 AND status='draft'", [messageId, subject, body]);
+}
+
+export async function reject(messageId: number): Promise<void> {
+  await pool.query("UPDATE messages SET status='rejected' WHERE id=$1 AND status IN ('draft','approved')", [messageId]);
+}
+
 export async function suppress(email: string, reason = "unsubscribe"): Promise<void> {
   await pool.query("INSERT INTO suppression (email, reason) VALUES ($1,$2) ON CONFLICT DO NOTHING", [email.toLowerCase(), reason]);
 }

@@ -6,6 +6,7 @@ import { getMeta, pool, setMeta } from "./db.js";
 import { draftFollowups } from "./followups.js";
 import { testImap, testSmtp } from "./health.js";
 import { currentJob, startJob } from "./jobs.js";
+import { BUILD } from "./version.js";
 import { approve, createCampaign, editDraft, reject, scoreLeads, sourceLeads, updateCampaign, writeDrafts } from "./pipeline.js";
 import { markHandled, markUnhandled, processReplies } from "./replies.js";
 import { sendApproved } from "./sender.js";
@@ -151,6 +152,23 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   }
   const url = new URL(req.url ?? "/", "http://localhost");
 
+  if (url.pathname === "/api/version") {
+    res.writeHead(200, { "Content-Type": "text/plain" }).end(BUILD);
+    return;
+  }
+  // Lets a newer copy replace this one. The custom header blocks cross-site form posts.
+  if (url.pathname === "/api/shutdown" && req.method === "POST") {
+    if (req.headers["x-requested-with"] !== "fetch") {
+      res.writeHead(403).end("Bad request");
+    } else if (currentJob()?.status === "running") {
+      res.writeHead(409).end("A job is running");
+    } else {
+      res.writeHead(200).end("bye");
+      setTimeout(() => process.exit(0), 200);
+    }
+    return;
+  }
+
   if (req.method === "POST") {
     const f = await readForm(req);
     if (f.get("_t") !== csrf()) {
@@ -221,6 +239,9 @@ export function startDashboard(): void {
 
   const url = `http://${config.dashboardHost}:${config.dashboardPort}`;
   const open = process.argv.includes("--open");
+  const auth: Record<string, string> = config.dashboardPassword ? { Authorization: "Basic " + Buffer.from("x:" + config.dashboardPassword).toString("base64") } : {};
+  let triedTakeover = false;
+
   const server = createServer((req, res) => {
     handle(req, res).catch((e) => {
       console.error(e);
@@ -228,16 +249,44 @@ export function startDashboard(): void {
       res.end("Server error");
     });
   });
-  server.on("error", (e: NodeJS.ErrnoException) => {
-    if (e.code === "EADDRINUSE") {
-      console.log(`Already running. Opening ${url}`);
-      if (open) openBrowser(url);
-      process.exit(0);
+
+  const listen = () => server.listen(config.dashboardPort, config.dashboardHost);
+
+  // Port taken: if it is an older copy of this program, ask it to stop and take its place.
+  server.on("error", async (e: NodeJS.ErrnoException) => {
+    if (e.code !== "EADDRINUSE") throw e;
+    try {
+      const running = await (await fetch(url + "/api/version", { headers: auth })).text();
+      if (running === BUILD) {
+        console.log(`Already running (version ${BUILD}). Opening ${url}`);
+        if (open) openBrowser(url);
+        process.exit(0);
+      }
+      if (!triedTakeover) {
+        triedTakeover = true;
+        console.log("An older version is running. Replacing it...");
+        const r = await fetch(url + "/api/shutdown", { method: "POST", headers: { "X-Requested-With": "fetch", ...auth } });
+        if (r.status === 409) throw new Error("The older version is busy with a job. Wait for it to finish, then start again.");
+        setTimeout(listen, 1500);
+        return;
+      }
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : err);
     }
-    throw e;
+    console.error(
+      `Port ${config.dashboardPort} is in use by an older copy that cannot be replaced automatically.\n` +
+        "Close the old VATcube Leads Generator window (look in the taskbar, or end node.js in Task Manager), then start again.",
+    );
+    process.exit(1);
   });
-  server.listen(config.dashboardPort, config.dashboardHost, () => {
-    console.log(`VATcube Leads Generator is running at ${url}\nKeep this window open. Close it to stop the agent.`);
+
+  server.on("listening", () => {
+    // Anything still marked "sending" was cut off by a stop. It may or may not have gone out, so never retry it silently.
+    pool
+      .query("UPDATE messages SET status='failed', error='Interrupted while sending. Check your Sent folder before approving again.' WHERE status='sending'")
+      .catch(() => {});
+    console.log(`VATcube Leads Generator (version ${BUILD}) is running at ${url}\nKeep this window open. Close it to stop the agent.`);
     if (open) openBrowser(url);
   });
+  listen();
 }

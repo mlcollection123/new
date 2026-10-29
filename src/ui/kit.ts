@@ -1,3 +1,4 @@
+import { BUILD } from "../version.js";
 import { CSS } from "./css.js";
 
 export const esc = (s: unknown) =>
@@ -121,7 +122,7 @@ ${o.running ? '<meta http-equiv="refresh" content="3">' : ""}<title>VATcube Lead
 <style>${CSS}</style><body><div class="app">
 <aside class="sidebar"><div class="brand"><b>VATcube</b><span>Leads Generator</span></div>${picker}<nav>${nav}</nav>
 <div class="sidebar-foot"><div class="dotline"><span class="dot ${state[0]}"></span>${state[1]}</div>
-<div class="actions"><button class="btn sm" type="button" id="theme">${icon("moon")}Theme</button><a class="btn sm" href="/?c=${o.c}&tab=${esc(o.tab)}">${icon("refresh")}Refresh</a></div></div></aside>
+<div class="actions"><button class="btn sm" type="button" id="theme">${icon("moon")}Theme</button><a class="btn sm" href="/?c=${o.c}&tab=${esc(o.tab)}">${icon("refresh")}Refresh</a></div><div class="meta">Version ${esc(BUILD)}</div></div></aside>
 <main class="content">${o.msg ? `<div class="flash">${esc(o.msg)}</div>` : ""}${o.body}</main></div>
 <script>document.getElementById("theme").onclick=function(){var d=document.documentElement,dark=d.getAttribute("data-theme")==="dark"||(!d.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme:dark)").matches);var n=dark?"light":"dark";d.setAttribute("data-theme",n);try{localStorage.setItem("theme",n)}catch(e){}}</script>
 </body></html>`;

@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit",
     "db:init": "tsx src/cli.ts db:init",
     "package": "bash scripts/package.sh",
-    "build": "esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node22 --outfile=dist/agent.cjs --log-level=warning"
+    "build": "node scripts/build.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",

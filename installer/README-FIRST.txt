@@ -54,6 +54,9 @@ YOUR DATA
    Back them up. Never share .env, it holds your passwords.
 
 UPDATING
+   The agent keeps running in the background after you start it. Installing a new version stops the old one first.
+   To check which version you are on, look at the bottom of the left sidebar: "Version <date>".
+   Old design with tabs along the top (Run, Drafts, Inbox, Stats) means the old version is still running.
    Windows: unzip the new version and run Install-Windows.bat again. Your settings and data are kept.
    Mac and Linux: replace agent.cjs with the new one. Keep "data" and ".env".
 

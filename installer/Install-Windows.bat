@@ -6,6 +6,9 @@ where node >nul 2>nul
 if errorlevel 1 goto nonode
 node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)"
 if errorlevel 1 goto nonode
+echo Stopping any older copy that is still running...
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -like '*agent.cjs*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+timeout /t 2 >nul
 if not exist "%APP%" mkdir "%APP%"
 copy /y "%SRC%agent.cjs" "%APP%\" >nul
 if errorlevel 1 goto copyfail

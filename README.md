@@ -1,61 +1,38 @@
 # lead-agent
 
-Outbound prospecting agent. Each campaign has its own ICP and offer, stored in Postgres and editable at any time.
+Outbound prospecting agent. Each campaign has its own targeting (segments with a pitch and pain point each), stored locally and editable at any time.
 
-Flow: source (Apollo) -> score (Claude vs ICP) -> write (Claude) -> human approval -> send (SMTP) -> replies (IMAP, Claude triage) -> follow-ups.
+Flow: find leads (Apollo) -> score (Claude) -> write drafts (Claude) -> you review and approve -> send (SMTP) -> read replies (IMAP, Claude triage) -> follow-ups.
+The agent never sends anything you have not approved and never answers replies on its own.
 
-## Run
+## Install (no coding)
 
-    cp .env.example .env        # add keys, leave APOLLO_API_KEY empty for sample data
-    docker compose up -d db
+Download `release/lead-agent.zip`, unzip it, install Node.js LTS from nodejs.org, then double-click the launcher for your system. Everything else happens in the browser. Full steps are in `README-FIRST.txt` inside the zip.
+
+Needs Node 22.13 or newer. Data lives in `data/agent.db` (SQLite) and settings in `.env`, both next to the program.
+
+## Develop
+
     npm install
-    npm run agent db:init
-    npm run agent campaign:create "VATcube" "VATcube: A to Z foreign VAT reclaim services" campaigns/vatcube.json
-    npm run agent source 1
-    npm run agent score 1
-    npm run agent write 1
-    npm run agent review 1
-    npm run agent approve all 1
-    npm run agent send 1            # dry run, prints emails
-    npm run agent send 1 --live     # real sending, needs SMTP and SENDER_* in .env
+    npm run typecheck
+    npm run agent dashboard           # http://127.0.0.1:4000, same as the launcher
+    npm run package                   # rebuilds release/lead-agent.zip
 
-Change targeting: edit the JSON, then `npm run agent campaign:icp 1 campaigns/vatcube.json`.
+CLI (same data as the dashboard): `campaign:create`, `campaign:icp`, `source`, `score`, `write`, `review`, `approve`, `send [--live]`, `replies`, `inbox`, `handled`, `followups`, `suppress`, `serve`. Run `npm run agent` for usage.
 
-## Deploy
+## Behaviour worth knowing
 
-Any VPS with Docker (Namecheap VPS works). Shared hosting will not.
-
-## Dashboard
-
-    npm run agent dashboard         # http://127.0.0.1:4000
-
-Review drafts (edit, approve, reject), read replies with suggested answers, and see counts per status. Needs DASHBOARD_PASSWORD (12+ characters, any username).
-It binds to localhost. On a VPS, reach it with `ssh -L 4000:127.0.0.1:4000 user@server` or put it behind an HTTPS reverse proxy. Never expose it over plain HTTP, the password travels with every request.
-
-## Sending
-
-- `send` is a dry run unless `--live`. Live mode refuses to start if SMTP, sender identity, postal address or UNSUB_SECRET is missing.
-- Only approved messages send, highest score first, capped by DAILY_CAP per UTC day, with SEND_DELAY_MS between emails.
-- Every email gets a footer with your identity and postal address, plus an opt-out. Two modes, set by UNSUB_MODE:
-  - `reply` (default): footer says reply "unsubscribe", header is a mailto. No public server needed. `send --live` reads the inbox first (needs IMAP_HOST) so anyone who opted out is suppressed before sending.
-  - `link`: signed unsubscribe URL plus one-click header. Needs `serve` on a public HTTPS address and UNSUB_SECRET.
-- In link mode, run `npm run agent serve` on a public URL (PUBLIC_URL, behind HTTPS). Suppressed addresses are never sourced or sent again.
-- Run `send` from cron, for example once per morning. Raise DAILY_CAP slowly while the domain warms up.
-
-## Replies and follow-ups
-
-    npm run agent replies           # read inbox (last 14 days, read only), classify new replies
-    npm run agent inbox 1           # replies that need you, with a suggested answer
-    npm run agent handled <id>      # after you answered by hand
-    npm run agent followups 1       # draft due follow-ups, then review, approve, send as usual
-
-- Replies match a lead by the email thread headers, with the sender address as a fallback. Needs IMAP_HOST.
-- unsubscribe, not_interested and bounce: address suppressed, lead closed, pending drafts cancelled.
-- interested, not_now, objection, other: lead marked replied, follow-ups cancelled, suggested reply saved for you. The agent never answers replies on its own.
-- out_of_office: logged, sequence continues.
-- FOLLOWUP_DAYS=3,7 means two follow-ups, 3 days after the first email and 7 days after the second. The last one closes the loop politely.
-- Follow-ups send in the same email thread. A lead that replied never gets another email, even if a follow-up was already approved.
-- Cron suggestion: `replies` and `followups` every morning, then review, approve and `send --live`.
+- `send` is a dry run unless `--live` (or the "Send for real" button). Live mode refuses to start if the mailbox, your name, company or postal address are missing.
+- Daily cap (default 5) and a pause between emails (default 2 minutes) protect a new domain.
+- Opt-out modes, set by `UNSUB_MODE`:
+  - `reply` (default): footer asks people to reply "unsubscribe". A live send reads the inbox first and suppresses opt-outs. Needs IMAP.
+  - `link`: signed unsubscribe URL with one-click header. Needs `serve` on a public HTTPS address, `PUBLIC_URL` and `UNSUB_SECRET`.
+- Replies are matched to leads by email thread headers (sender address as fallback). unsubscribe, not_interested and bounce suppress the address and cancel pending drafts. interested, not_now, objection and other stop the sequence and wait in the Inbox with a suggested answer.
+- `FOLLOWUP_DAYS=3,7` means two follow-ups, 3 days after the first email and 7 days after the second, sent in the same thread. A lead that replied never gets another email.
+- The dashboard listens on localhost only and rejects requests for other host names. Writes need a per-session token. To expose it beyond your computer, set `DASHBOARD_HOST` and a `DASHBOARD_PASSWORD` (12+ characters) and put HTTPS in front.
+- Apollo endpoint and field names should be checked against current Apollo docs before heavy use.
 
 ## Next
-- LinkedIn: draft-only until you decide on the ban risk
+
+- LinkedIn: draft-only until the ban risk is decided
+- Bounce and spam-complaint feedback from the mail server

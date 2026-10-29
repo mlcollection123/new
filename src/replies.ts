@@ -18,7 +18,7 @@ interface Incoming {
 const BOUNCE_SENDER = /mailer-daemon|postmaster/i;
 
 async function fetchRecent(days: number): Promise<Incoming[]> {
-  if (!config.imapHost) throw new Error("IMAP_HOST is not set");
+  if (!config.imapHost) throw new Error("Reading replies is not set up. Fill in the IMAP server on the Settings tab.");
   const client = new ImapFlow({
     host: config.imapHost,
     port: config.imapPort,
@@ -59,8 +59,8 @@ async function fetchRecent(days: number): Promise<Incoming[]> {
 async function findLead(m: Incoming): Promise<Lead | undefined> {
   if (m.refs.length) {
     const { rows } = await pool.query(
-      "SELECT l.* FROM messages x JOIN leads l ON l.id=x.lead_id WHERE x.message_id = ANY($1) LIMIT 1",
-      [m.refs],
+      `SELECT l.* FROM messages x JOIN leads l ON l.id=x.lead_id WHERE x.message_id IN (${m.refs.map((_, i) => "$" + (i + 1)).join(",")}) LIMIT 1`,
+      m.refs,
     );
     if (rows[0]) return rows[0];
   }
@@ -68,7 +68,10 @@ async function findLead(m: Incoming): Promise<Lead | undefined> {
     // Bounce notices quote the failed recipient in the body.
     const addrs = [...new Set((m.text.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g) ?? []).map((a) => a.toLowerCase()))];
     if (addrs.length) {
-      const { rows } = await pool.query("SELECT * FROM leads WHERE email = ANY($1) AND status='contacted' LIMIT 1", [addrs]);
+      const { rows } = await pool.query(
+        `SELECT * FROM leads WHERE email IN (${addrs.map((_, i) => "$" + (i + 1)).join(",")}) AND status='contacted' LIMIT 1`,
+        addrs,
+      );
       if (rows[0]) return rows[0];
     }
     return undefined;
@@ -116,7 +119,7 @@ export async function listInbox(campaignId?: number) {
   const { rows } = await pool.query(
     `SELECT r.id, r.category, r.summary, r.body, r.suggested_reply, l.email, l.company, l.segment
      FROM replies r JOIN leads l ON l.id=r.lead_id
-     WHERE r.handled=false AND ($1::int IS NULL OR l.campaign_id=$1)
+     WHERE r.handled=0 AND ($1 IS NULL OR l.campaign_id=$1)
      ORDER BY (r.category='interested') DESC, r.created_at`,
     [campaignId ?? null],
   );
@@ -124,5 +127,5 @@ export async function listInbox(campaignId?: number) {
 }
 
 export async function markHandled(replyId: number): Promise<void> {
-  await pool.query("UPDATE replies SET handled=true WHERE id=$1", [replyId]);
+  await pool.query("UPDATE replies SET handled=1 WHERE id=$1", [replyId]);
 }

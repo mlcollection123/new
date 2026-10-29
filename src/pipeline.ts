@@ -17,10 +17,15 @@ export async function updateIcp(id: number, icp: unknown): Promise<void> {
   await pool.query("UPDATE campaigns SET icp=$2 WHERE id=$1", [id, parsed]);
 }
 
+export async function updateCampaign(id: number, offer: string, minScore: number, icp: unknown): Promise<void> {
+  const parsed: Icp = IcpSchema.parse(icp);
+  await pool.query("UPDATE campaigns SET offer=$2, min_score=$3, icp=$4 WHERE id=$1", [id, offer, minScore, parsed]);
+}
+
 export async function getCampaign(id: number): Promise<Campaign> {
   const { rows } = await pool.query("SELECT * FROM campaigns WHERE id=$1", [id]);
   if (!rows[0]) throw new Error(`Campaign ${id} not found`);
-  return rows[0] as Campaign;
+  return { ...rows[0], icp: IcpSchema.parse(JSON.parse(rows[0].icp)) } as Campaign;
 }
 
 export async function sourceLeads(id: number, limit: number): Promise<number> {

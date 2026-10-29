@@ -11,7 +11,7 @@ function segmentContext(c: Campaign, lead: Lead): string {
 }
 
 async function ask(system: string, user: string): Promise<string> {
-  if (!config.anthropicKey) throw new Error("ANTHROPIC_API_KEY is not set");
+  if (!config.anthropicKey) throw new Error("The Anthropic key is missing. Add it on the Settings tab.");
   client ??= new Anthropic({ apiKey: config.anthropicKey });
   const res = await client.messages.create({
     model: config.model,

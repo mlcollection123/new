@@ -1,4 +1,4 @@
-# lead-agent
+# VATcube Leads Generator
 
 Outbound prospecting agent. Each campaign has its own targeting (segments with a pitch and pain point each), stored locally and editable at any time.
 
@@ -7,7 +7,7 @@ The agent never sends anything you have not approved and never answers replies o
 
 ## Install (no coding)
 
-Download `release/lead-agent.zip`, unzip it, install Node.js LTS from nodejs.org, then double-click the launcher for your system. Everything else happens in the browser. Full steps are in `README-FIRST.txt` inside the zip.
+Download `release/VATcube-Leads-Generator.zip`, unzip it, install Node.js LTS from nodejs.org, then double-click the launcher for your system. Everything else happens in the browser. Full steps are in `README-FIRST.txt` inside the zip.
 
 Needs Node 22.13 or newer. Data lives in `data/agent.db` (SQLite) and settings in `.env`, both next to the program.
 
@@ -16,7 +16,7 @@ Needs Node 22.13 or newer. Data lives in `data/agent.db` (SQLite) and settings i
     npm install
     npm run typecheck
     npm run agent dashboard           # http://127.0.0.1:4000, same as the launcher
-    npm run package                   # rebuilds release/lead-agent.zip
+    npm run package                   # rebuilds release/VATcube-Leads-Generator.zip
 
 CLI (same data as the dashboard): `campaign:create`, `campaign:icp`, `source`, `score`, `write`, `review`, `approve`, `send [--live]`, `replies`, `inbox`, `handled`, `followups`, `suppress`, `serve`. Run `npm run agent` for usage.
 

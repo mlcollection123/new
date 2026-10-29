@@ -1,4 +1,4 @@
-LEAD AGENT: setup in 5 minutes
+VATCUBE LEADS GENERATOR: setup in 5 minutes
 ================================
 
 You do not need to write any code. Everything runs in your web browser.

@@ -82,7 +82,8 @@ function layout(c: number, tab: Tab, campaigns: { id: number; name: string }[], 
   const opts = campaigns.map((x) => `<option value="${x.id}"${x.id === c ? " selected" : ""}>${esc(x.name)}</option>`).join("");
   const links = TABS.map((t) => `<a href="/?c=${c}&tab=${t}" class="${tab === t ? "on" : ""}">${LABEL[t]}</a>`).join("");
   return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-${refresh ? '<meta http-equiv="refresh" content="3">' : ""}<title>Lead agent</title><style>${CSS}</style><body><main>
+${refresh ? '<meta http-equiv="refresh" content="3">' : ""}<title>VATcube Leads Generator</title><style>${CSS}</style><body><main>
+<h2 style="margin:.2rem 0 .8rem">VATcube Leads Generator</h2>
 <nav>${campaigns.length ? `<form method="get"><input type="hidden" name="tab" value="${tab}"><select name="c" onchange="this.form.submit()">${opts}</select></form>` : ""}${links}</nav>
 ${msg ? `<div class="card flash">${esc(msg)}</div>` : ""}${inner}</main></body></html>`;
 }
@@ -322,7 +323,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     return;
   }
   if (!authorized(req)) {
-    res.writeHead(401, { "WWW-Authenticate": 'Basic realm="lead-agent"' }).end("Login required");
+    res.writeHead(401, { "WWW-Authenticate": 'Basic realm="VATcube Leads Generator"' }).end("Login required");
     return;
   }
   const url = new URL(req.url ?? "/", "http://localhost");
@@ -397,7 +398,7 @@ export function startDashboard(): void {
     throw e;
   });
   server.listen(config.dashboardPort, config.dashboardHost, () => {
-    console.log(`Lead agent is running at ${url}\nKeep this window open. Close it to stop the agent.`);
+    console.log(`VATcube Leads Generator is running at ${url}\nKeep this window open. Close it to stop the agent.`);
     if (open) openBrowser(url);
   });
 }

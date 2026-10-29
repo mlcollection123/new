@@ -11,7 +11,7 @@ export async function testSmtp(): Promise<string> {
   await t.sendMail({
     from: config.fromEmail,
     to: config.fromEmail,
-    subject: "Lead agent test",
+    subject: "VATcube Leads Generator test",
     text: "If you can read this, sending works. Open this message in Gmail, choose Show original, and check SPF, DKIM and DMARC say PASS.",
   });
   return `Login works. A test email was sent to ${config.fromEmail}.`;

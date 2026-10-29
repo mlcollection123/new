@@ -10,14 +10,14 @@ Flow: source (Apollo) -> score (Claude vs ICP) -> write (Claude) -> human approv
     docker compose up -d db
     npm install
     npm run agent db:init
-    npm run agent campaign:create "Dental CY" "We fill empty appointment slots with automated reminders" campaigns/example-icp.json
+    npm run agent campaign:create "VATcube" "VATcube: A to Z foreign VAT reclaim services" campaigns/vatcube.json
     npm run agent source 1
     npm run agent score 1
     npm run agent write 1
     npm run agent review 1
     npm run agent approve all 1
 
-Change targeting: edit the JSON, then `npm run agent campaign:icp 1 campaigns/example-icp.json`.
+Change targeting: edit the JSON, then `npm run agent campaign:icp 1 campaigns/vatcube.json`.
 
 ## Deploy
 

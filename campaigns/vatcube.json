@@ -1,0 +1,43 @@
+{
+  "segments": [
+    {
+      "name": "Aviation management companies",
+      "industries": ["aviation management", "aircraft management", "business aviation"],
+      "keywords": ["private jet", "charter operator"],
+      "titles": ["CEO", "Managing Director", "Director of Operations", "Head of Finance", "CFO"],
+      "pitch": "End to end foreign VAT reclaim on fuel, handling, parking and other costs paid abroad.",
+      "pain": "Aircraft operate across many countries, so VAT is paid abroad on many invoices and rarely reclaimed."
+    },
+    {
+      "name": "Transport operators",
+      "industries": ["transportation", "road freight", "logistics"],
+      "keywords": ["haulage", "trucking", "international transport"],
+      "titles": ["Owner", "CEO", "Managing Director", "Finance Director", "CFO"],
+      "pitch": "End to end foreign VAT reclaim on fuel, tolls and other road costs paid in other countries.",
+      "pain": "Fuel and road costs paid abroad carry VAT that stays unclaimed and erodes margins."
+    },
+    {
+      "name": "Hotels",
+      "industries": ["hotels", "hospitality"],
+      "keywords": ["resort", "boutique hotel"],
+      "titles": ["Owner", "General Manager", "Finance Director", "CFO"],
+      "pitch": "End to end foreign VAT reclaim on supplier invoices and cross-border costs.",
+      "pain": "Complex invoices from foreign suppliers hide VAT that could be recovered."
+    },
+    {
+      "name": "Hotel groups",
+      "industries": ["hotel chains", "hospitality groups"],
+      "keywords": ["hotel group", "hotel management company"],
+      "titles": ["CFO", "Group Finance Director", "Head of Finance", "Group Financial Controller"],
+      "pitch": "End to end foreign VAT reclaim across all properties, handled centrally.",
+      "pain": "Many properties and suppliers across countries make foreign VAT hard to track and claim."
+    }
+  ],
+  "industries": [],
+  "keywords": [],
+  "titles": [],
+  "employeeRanges": ["11,50", "51,200", "201,500"],
+  "locations": [],
+  "excludeDomains": ["vatcube.com"],
+  "notes": "Good fit: companies that regularly pay for goods and services in other countries and have a finance contact. Deal breakers: no cross-border costs, tiny sole traders, VAT advisory competitors."
+}

@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { pool, initDb } from "./db.js";
 import * as p from "./pipeline.js";
+import { sendApproved } from "./sender.js";
+import { serve } from "./unsubscribe.js";
 
 const USAGE = `Commands:
   db:init
@@ -11,9 +13,11 @@ const USAGE = `Commands:
   write <id>                        Claude drafts emails for kept leads
   review <id>                       list drafts
   approve <messageId|all> [campaignId]
+  send <campaignId> [--live]        send approved emails (dry run unless --live)
+  serve                             run the unsubscribe server
   suppress <email>`;
 
-async function main() {
+async function main(): Promise<boolean> {
   const [cmd, ...a] = process.argv.slice(2);
   switch (cmd) {
     case "db:init":
@@ -48,6 +52,12 @@ async function main() {
     case "approve":
       console.log(`${await p.approve(a[0] === "all" ? "all" : Number(a[0]), a[1] ? Number(a[1]) : undefined)} approved`);
       break;
+    case "send":
+      console.log(await sendApproved(Number(a[0]), a.includes("--live")));
+      break;
+    case "serve":
+      serve();
+      return true;
     case "suppress":
       await p.suppress(a[0]);
       console.log("suppressed");
@@ -55,11 +65,14 @@ async function main() {
     default:
       console.log(USAGE);
   }
+  return false;
 }
 
+// serve keeps running, so it keeps the pool open
 main()
+  .then((keepAlive) => (keepAlive ? undefined : pool.end()))
   .catch((e) => {
     console.error(e instanceof Error ? e.message : e);
     process.exitCode = 1;
-  })
-  .finally(() => pool.end());
+    return pool.end();
+  });

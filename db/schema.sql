@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS messages (
   channel TEXT NOT NULL DEFAULT 'email', -- email | linkedin
   subject TEXT,
   body TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'draft', -- draft | approved | rejected | sent
+  status TEXT NOT NULL DEFAULT 'draft', -- draft | approved | rejected | sending | sent | failed
+  sent_at TIMESTAMPTZ,
+  error TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (lead_id, step, channel)
 );

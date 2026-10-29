@@ -20,7 +20,7 @@ You do not need to write any code. Everything runs in your web browser.
    Your browser opens the agent. A small window stays minimized in the taskbar while it runs.
    Close that window to stop the agent.
 
-4. SETTINGS TAB
+4. SETTINGS
    Paste your Anthropic key and your Apollo key (Apollo is optional to start).
    Fill in your name, company and postal address. They go in every email footer.
    Fill in your mailbox: address, SMTP server, username, password, and the IMAP server.
@@ -28,15 +28,19 @@ You do not need to write any code. Everything runs in your web browser.
    Open the test email in Gmail, choose "Show original", and check SPF, DKIM and DMARC all say PASS.
    If not, fix your domain's DNS before sending anything.
 
-5. CAMPAIGN TAB
-   Create your campaign. Edit every "pitch" and "pain" line so it matches what you really sell.
-   Emails can only be as good as these lines. Never claim results you cannot prove.
+5. CAMPAIGN
+   Open the Campaign page and create your campaign. Edit every "pitch" and "pain" line so it matches
+   what you really sell. Emails can only be as good as these lines. Never claim results you cannot prove.
 
-6. RUN TAB, IN ORDER
+6. EVERY DAY
+   The Today page shows what needs you and has a button for each step:
    Find leads, Score leads, Write drafts.
-   Then open the Drafts tab: read every draft, edit, Approve or Reject.
-   Back on Run: Send approved emails. Use "Dry run" first to see what would go out.
-   Later: Check replies, then Draft follow-ups.
+   Then open the Outbox: read each draft, edit if needed, and approve or reject.
+   Keyboard: A approve, R reject, E edit, J and K to move.
+   Back on Today: Send approved emails. Use "Dry run" first to see what would go out.
+   Later: Check replies. Replies that need you appear in Conversations with a suggested answer.
+   Draft follow-ups for leads who did not reply.
+   "Pause all sending" on the Outbox page stops every real send until you resume.
 
 SAFETY RULES
    - Send your first 3 emails to your own addresses (Gmail, Outlook, work) and check they reach the inbox, not spam.

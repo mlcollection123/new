@@ -126,6 +126,10 @@ export async function listInbox(campaignId?: number) {
   return rows;
 }
 
+export async function markUnhandled(replyId: number): Promise<void> {
+  await pool.query("UPDATE replies SET handled=0 WHERE id=$1", [replyId]);
+}
+
 export async function markHandled(replyId: number): Promise<void> {
   await pool.query("UPDATE replies SET handled=1 WHERE id=$1", [replyId]);
 }

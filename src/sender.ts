@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
 import { config } from "./config.js";
-import { nowIso, pool } from "./db.js";
+import { getMeta, nowIso, pool } from "./db.js";
 import { processReplies } from "./replies.js";
 import { FIELDS } from "./settings.js";
 import { unsubscribeUrl } from "./unsubscribe.js";
@@ -61,6 +61,10 @@ export function smtpTransport() {
 }
 
 export async function sendApproved(campaignId: number, live: boolean): Promise<{ sent: number; failed: number; skipped: number; remainingToday: number }> {
+  if (live && (await getMeta("paused")) === "1") {
+    console.log("Sending is paused. Resume it on the Outbox page.");
+    return { sent: 0, failed: 0, skipped: 0, remainingToday: 0 };
+  }
   if (live) requireLiveConfig();
   else if (!config.unsubSecret) config.unsubSecret = "dry-run-secret";
 

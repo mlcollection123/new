@@ -40,4 +40,13 @@ export async function initDb(): Promise<void> {
   db.exec(SCHEMA);
 }
 
+export async function getMeta(key: string): Promise<string | null> {
+  const { rows } = await pool.query("SELECT value FROM meta WHERE key=$1", [key]);
+  return rows[0]?.value ?? null;
+}
+
+export async function setMeta(key: string, value: string): Promise<void> {
+  await pool.query("INSERT INTO meta (key, value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=excluded.value", [key, value]);
+}
+
 export const nowIso = () => new Date().toISOString();

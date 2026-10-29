@@ -20,6 +20,10 @@ Needs Node 22.13 or newer. Data lives in `data/agent.db` (SQLite) and settings i
 
 CLI (same data as the dashboard): `campaign:create`, `campaign:icp`, `source`, `score`, `write`, `review`, `approve`, `send [--live]`, `replies`, `inbox`, `handled`, `followups`, `suppress`, `serve`. Run `npm run agent` for usage.
 
+## Screens
+
+Today (what needs you, one button per step), Outbox (approve, edit or reject each draft, keyboard driven), Conversations (replies with suggested answers), Leads, Campaign, Activity, Settings, Help. Light and dark. The visual design is adapted from Harvey (MIT), see `THIRD-PARTY-NOTICES.md`.
+
 ## Behaviour worth knowing
 
 - `send` is a dry run unless `--live` (or the "Send for real" button). Live mode refuses to start if the mailbox, your name, company or postal address are missing.

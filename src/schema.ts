@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS messages (
   UNIQUE (lead_id, step, channel)
 );
 
+CREATE TABLE IF NOT EXISTS meta (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
 CREATE TABLE IF NOT EXISTS suppression (
   email TEXT PRIMARY KEY,
   reason TEXT,

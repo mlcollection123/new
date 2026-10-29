@@ -5,6 +5,11 @@ import type { Campaign, Lead } from "./types.js";
 
 let client: Anthropic | undefined;
 
+function segmentContext(c: Campaign, lead: Lead): string {
+  const seg = c.icp.segments.find((s) => s.name === lead.segment);
+  return seg ? `Segment: ${seg.name}\nPitch for this segment: ${seg.pitch}\nTheir pain: ${seg.pain}\n` : "";
+}
+
 async function ask(system: string, user: string): Promise<string> {
   if (!config.anthropicKey) throw new Error("ANTHROPIC_API_KEY is not set");
   client ??= new Anthropic({ apiKey: config.anthropicKey });
@@ -30,7 +35,7 @@ export async function scoreLead(c: Campaign, lead: Lead): Promise<{ score: numbe
     "You qualify sales leads against an ideal customer profile. Be strict. " +
     'Reply with JSON only: {"score": 0-100, "reason": "one sentence"}.';
   const user =
-    `Offer: ${c.offer}\nICP: ${JSON.stringify(c.icp)}\n\n` +
+    `Offer: ${c.offer}\nICP: ${JSON.stringify(c.icp)}\n${segmentContext(c, lead)}\n` +
     `Lead: ${lead.first_name} ${lead.last_name}, ${lead.title} at ${lead.company} (${lead.domain})`;
   return parseJson(await ask(system, user), ScoreSchema);
 }
@@ -43,7 +48,7 @@ export async function writeEmail(c: Campaign, lead: Lead): Promise<{ subject: st
     "one clear low-pressure question at the end. Use only facts given. Do not invent details about the company. " +
     'Reply with JSON only: {"subject": "...", "body": "..."}. Do not include a signature or unsubscribe line.';
   const user =
-    `Offer: ${c.offer}\n` +
+    `Offer: ${c.offer}\n${segmentContext(c, lead)}` +
     `Why this lead fits: ${c.icp.notes}\n` +
     `Lead: ${lead.first_name} ${lead.last_name}, ${lead.title} at ${lead.company} (${lead.domain})`;
   return parseJson(await ask(system, user), DraftSchema);

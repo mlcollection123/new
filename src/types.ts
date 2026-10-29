@@ -1,7 +1,20 @@
 import { z } from "zod";
 
+export const SegmentSchema = z.object({
+  name: z.string(),
+  industries: z.array(z.string()).default([]),
+  keywords: z.array(z.string()).default([]),
+  titles: z.array(z.string()).default([]),
+  // What you offer this segment and the problem it solves. Drives scoring and copy.
+  pitch: z.string().default(""),
+  pain: z.string().default(""),
+});
+export type Segment = z.infer<typeof SegmentSchema>;
+
 // The ICP is data, not code. Edit it per campaign without touching the agent.
 export const IcpSchema = z.object({
+  // Each segment is searched separately and gets its own pitch. Empty means one generic search.
+  segments: z.array(SegmentSchema).default([]),
   industries: z.array(z.string()).default([]),
   keywords: z.array(z.string()).default([]),
   titles: z.array(z.string()).default([]),
@@ -27,6 +40,7 @@ export interface RawLead {
   firstName?: string;
   lastName?: string;
   title?: string;
+  segment?: string;
   company?: string;
   domain?: string;
   linkedinUrl?: string;
@@ -40,6 +54,7 @@ export interface Lead {
   first_name: string | null;
   last_name: string | null;
   title: string | null;
+  segment: string | null;
   company: string | null;
   domain: string | null;
   linkedin_url: string | null;

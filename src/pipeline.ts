@@ -31,11 +31,11 @@ export async function sourceLeads(id: number, limit: number): Promise<number> {
     const email = l.email.toLowerCase();
     if (l.domain && c.icp.excludeDomains.includes(l.domain)) continue;
     const { rowCount } = await pool.query(
-      `INSERT INTO leads (campaign_id,email,first_name,last_name,title,company,domain,linkedin_url,raw)
-       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9
+      `INSERT INTO leads (campaign_id,email,first_name,last_name,title,company,domain,linkedin_url,raw,segment)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
        WHERE NOT EXISTS (SELECT 1 FROM suppression WHERE email=$2)
        ON CONFLICT (campaign_id,email) DO NOTHING`,
-      [id, email, l.firstName, l.lastName, l.title, l.company, l.domain, l.linkedinUrl, l.raw ?? null],
+      [id, email, l.firstName, l.lastName, l.title, l.company, l.domain, l.linkedinUrl, l.raw ?? null, l.segment ?? null],
     );
     added += rowCount ?? 0;
   }

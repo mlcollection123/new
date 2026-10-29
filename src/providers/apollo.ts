@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import type { Icp, RawLead } from "../types.js";
+import type { Icp, RawLead, Segment } from "../types.js";
 
 // Verify endpoint and field names against current Apollo docs before production use.
 const URL_SEARCH = "https://api.apollo.io/api/v1/mixed_people/api_search";
@@ -15,15 +15,25 @@ interface ApolloPerson {
 
 export async function searchLeads(icp: Icp, limit: number): Promise<RawLead[]> {
   if (!config.apolloKey) return sampleLeads(limit);
+  if (icp.segments.length === 0) return searchOne(icp, undefined, limit);
+  const per = Math.ceil(limit / icp.segments.length);
+  const out: RawLead[] = [];
+  for (const seg of icp.segments) out.push(...(await searchOne(icp, seg, per)));
+  return out;
+}
+
+async function searchOne(icp: Icp, seg: Segment | undefined, limit: number): Promise<RawLead[]> {
+  const titles = [...icp.titles, ...(seg?.titles ?? [])];
+  const tags = [...icp.industries, ...icp.keywords, ...(seg?.industries ?? []), ...(seg?.keywords ?? [])];
 
   const res = await fetch(URL_SEARCH, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": config.apolloKey },
     body: JSON.stringify({
-      person_titles: icp.titles,
+      person_titles: titles,
       person_locations: icp.locations,
       organization_num_employees_ranges: icp.employeeRanges,
-      q_organization_keyword_tags: [...icp.industries, ...icp.keywords],
+      q_organization_keyword_tags: tags,
       contact_email_status: ["verified"],
       per_page: Math.min(limit, 100),
       page: 1,
@@ -39,6 +49,7 @@ export async function searchLeads(icp: Icp, limit: number): Promise<RawLead[]> {
       firstName: p.first_name,
       lastName: p.last_name,
       title: p.title,
+      segment: seg?.name,
       company: p.organization?.name,
       domain: p.organization?.primary_domain,
       linkedinUrl: p.linkedin_url,

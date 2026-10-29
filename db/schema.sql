@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS leads (
   first_name TEXT,
   last_name TEXT,
   title TEXT,
+  segment TEXT,
   company TEXT,
   domain TEXT,
   linkedin_url TEXT,

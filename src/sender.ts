@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
 import { config } from "./config.js";
 import { pool } from "./db.js";
+import { processReplies } from "./replies.js";
 import { unsubscribeUrl } from "./unsubscribe.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -20,7 +21,9 @@ interface Outgoing {
 function footer(email: string): string {
   return (
     `\n\n--\n${config.senderName}, ${config.senderCompany}\n${config.senderAddress}\n` +
-    `Not relevant? Unsubscribe: ${unsubscribeUrl(email)}`
+    (config.unsubMode === "link"
+      ? `Not relevant? Unsubscribe: ${unsubscribeUrl(email)}`
+      : `Not relevant? Reply "unsubscribe" and I will not write again.`)
   );
 }
 
@@ -34,8 +37,9 @@ function requireLiveConfig(): void {
       ["SENDER_NAME", config.senderName],
       ["SENDER_COMPANY", config.senderCompany],
       ["SENDER_ADDRESS", config.senderAddress],
-      ["UNSUB_SECRET", config.unsubSecret],
-      ["PUBLIC_URL", process.env.PUBLIC_URL ?? ""],
+      ...(config.unsubMode === "link"
+        ? ([["UNSUB_SECRET", config.unsubSecret], ["PUBLIC_URL", process.env.PUBLIC_URL ?? ""]] as const)
+        : ([["IMAP_HOST", config.imapHost]] as const)),
     ] as const
   )
     .filter(([, v]) => !v)
@@ -46,6 +50,11 @@ function requireLiveConfig(): void {
 export async function sendApproved(campaignId: number, live: boolean): Promise<{ sent: number; failed: number; skipped: number; remainingToday: number }> {
   if (live) requireLiveConfig();
   else if (!config.unsubSecret) config.unsubSecret = "dry-run-secret";
+
+  // Reply-based opt-out only works if we read the replies first, so nobody who said stop gets another email.
+  if (live && config.unsubMode === "reply") {
+    console.log("reading inbox before sending", await processReplies(7));
+  }
 
   const { rows: today } = await pool.query(
     "SELECT count(*)::int AS n FROM messages WHERE status='sent' AND sent_at >= date_trunc('day', now())",
@@ -101,7 +110,7 @@ export async function sendApproved(campaignId: number, live: boolean): Promise<{
     if (!claim.rowCount) continue;
 
     try {
-      const link = unsubscribeUrl(m.email);
+      const unsub = config.unsubMode === "link" ? unsubscribeUrl(m.email) : null;
       const messageId = `<${randomUUID()}@${config.fromEmail.split("@")[1]}>`;
       const thread = m.thread_ids.length
         ? { inReplyTo: m.thread_ids[m.thread_ids.length - 1], references: m.thread_ids }
@@ -113,10 +122,9 @@ export async function sendApproved(campaignId: number, live: boolean): Promise<{
         to: m.email,
         subject: m.subject ?? "",
         text,
-        headers: {
-          "List-Unsubscribe": `<${link}>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
+        headers: unsub
+          ? { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+          : { "List-Unsubscribe": `<mailto:${config.fromEmail}?subject=unsubscribe>` },
       });
       await pool.query("UPDATE messages SET status='sent', sent_at=now(), message_id=$2 WHERE id=$1", [m.id, messageId]);
       await pool.query("UPDATE leads SET status='contacted' WHERE id=$1 AND status IN ('drafted','scored')", [m.lead_id]);

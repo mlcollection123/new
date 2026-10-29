@@ -14,6 +14,8 @@ export const config = {
   smtpPass: process.env.SMTP_PASS ?? "",
   fromEmail: process.env.FROM_EMAIL ?? "",
   publicUrl: (process.env.PUBLIC_URL ?? "http://localhost:3000").replace(/\/$/, ""),
+  // reply: footer asks people to reply "unsubscribe" (no public server needed). link: signed unsubscribe URL, needs `serve` on a public HTTPS address.
+  unsubMode: process.env.UNSUB_MODE === "link" ? ("link" as const) : ("reply" as const),
   unsubSecret: process.env.UNSUB_SECRET ?? "",
   dailyCap: Number(process.env.DAILY_CAP ?? 20),
   sendDelayMs: Number(process.env.SEND_DELAY_MS ?? 60000),

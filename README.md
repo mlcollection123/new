@@ -36,8 +36,10 @@ It binds to localhost. On a VPS, reach it with `ssh -L 4000:127.0.0.1:4000 user@
 
 - `send` is a dry run unless `--live`. Live mode refuses to start if SMTP, sender identity, postal address or UNSUB_SECRET is missing.
 - Only approved messages send, highest score first, capped by DAILY_CAP per UTC day, with SEND_DELAY_MS between emails.
-- Every email gets a footer with your identity, postal address and a signed unsubscribe link, plus List-Unsubscribe headers.
-- Run `npm run agent serve` on a public URL (PUBLIC_URL, behind HTTPS) so unsubscribe links work. Suppressed addresses are never sourced or sent again.
+- Every email gets a footer with your identity and postal address, plus an opt-out. Two modes, set by UNSUB_MODE:
+  - `reply` (default): footer says reply "unsubscribe", header is a mailto. No public server needed. `send --live` reads the inbox first (needs IMAP_HOST) so anyone who opted out is suppressed before sending.
+  - `link`: signed unsubscribe URL plus one-click header. Needs `serve` on a public HTTPS address and UNSUB_SECRET.
+- In link mode, run `npm run agent serve` on a public URL (PUBLIC_URL, behind HTTPS). Suppressed addresses are never sourced or sent again.
 - Run `send` from cron, for example once per morning. Raise DAILY_CAP slowly while the domain warms up.
 
 ## Replies and follow-ups

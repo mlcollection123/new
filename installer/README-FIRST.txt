@@ -9,13 +9,16 @@ You do not need to write any code. Everything runs in your web browser.
 2. UNZIP THIS FOLDER
    Put it somewhere permanent, for example Documents. Do not run it from inside the zip.
 
-3. START THE AGENT
-   Windows:  double-click Start-Windows.bat
+3. INSTALL AND START
+   Windows:  double-click Install-Windows.bat (once).
+             It installs the agent, puts a "VATcube Leads Generator" shortcut on your Desktop and in the
+             Start Menu, and starts it. From then on, open it from the shortcut.
              If Windows warns "protected your PC", click More info, then Run anyway.
+             Prefer not to install? Double-click Start-Windows.bat to run it from this folder.
    Mac:      right-click Start-Mac.command, choose Open, then Open again.
    Linux:    run Start-Linux.sh
-   A black window opens and your browser opens the agent. Keep the black window open.
-   Close it to stop the agent.
+   Your browser opens the agent. A small window stays minimized in the taskbar while it runs.
+   Close that window to stop the agent.
 
 4. SETTINGS TAB
    Paste your Anthropic key and your Apollo key (Apollo is optional to start).
@@ -47,4 +50,8 @@ YOUR DATA
    Back them up. Never share .env, it holds your passwords.
 
 UPDATING
-   Replace agent.cjs with the new one. Keep "data" and ".env".
+   Windows: unzip the new version and run Install-Windows.bat again. Your settings and data are kept.
+   Mac and Linux: replace agent.cjs with the new one. Keep "data" and ".env".
+
+WHERE THINGS ARE (Windows, after installing)
+   %LOCALAPPDATA%\VATcube Leads Generator   (settings in .env, data in the data folder)

@@ -7,7 +7,7 @@ The agent never sends anything you have not approved and never answers replies o
 
 ## Install (no coding)
 
-Download `release/VATcube-Leads-Generator.zip`, unzip it, install Node.js LTS from nodejs.org, then double-click the launcher for your system. Everything else happens in the browser. Full steps are in `README-FIRST.txt` inside the zip.
+Download `release/VATcube-Leads-Generator.zip`, unzip it, install Node.js LTS from nodejs.org, then on Windows run `Install-Windows.bat` once (installs to `%LOCALAPPDATA%\VATcube Leads Generator`, adds Desktop and Start Menu shortcuts), or on Mac and Linux run the launcher. Everything else happens in the browser. Full steps are in `README-FIRST.txt` inside the zip.
 
 Needs Node 22.13 or newer. Data lives in `data/agent.db` (SQLite) and settings in `.env`, both next to the program.
 

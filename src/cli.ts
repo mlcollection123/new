@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { pool, initDb } from "./db.js";
 import * as p from "./pipeline.js";
 import { sendApproved } from "./sender.js";
+import { draftFollowups } from "./followups.js";
+import { listInbox, markHandled, processReplies } from "./replies.js";
 import { serve } from "./unsubscribe.js";
 
 const USAGE = `Commands:
@@ -14,6 +16,10 @@ const USAGE = `Commands:
   review <id>                       list drafts
   approve <messageId|all> [campaignId]
   send <campaignId> [--live]        send approved emails (dry run unless --live)
+  replies [days]                    read the inbox, classify new replies, stop sequences when needed
+  inbox [campaignId]                replies that need you, with a suggested answer
+  handled <replyId>                 mark a reply as dealt with
+  followups <campaignId>            draft due follow-ups (then review and approve)
   serve                             run the unsubscribe server
   suppress <email>`;
 
@@ -46,7 +52,7 @@ async function main(): Promise<boolean> {
       break;
     case "review":
       for (const d of await p.listDrafts(Number(a[0]))) {
-        console.log(`\n#${d.id} [${d.score}] ${d.company} <${d.email}>\nSubject: ${d.subject}\n${d.body}`);
+        console.log(`\n#${d.id} step ${d.step} [${d.score}] ${d.company} <${d.email}>\nSubject: ${d.subject}\n${d.body}`);
       }
       break;
     case "approve":
@@ -54,6 +60,22 @@ async function main(): Promise<boolean> {
       break;
     case "send":
       console.log(await sendApproved(Number(a[0]), a.includes("--live")));
+      break;
+    case "replies":
+      console.log(await processReplies(a[0] ? Number(a[0]) : 14));
+      break;
+    case "inbox":
+      for (const r of await listInbox(a[0] ? Number(a[0]) : undefined)) {
+        console.log(`\n#${r.id} [${r.category}] ${r.company} <${r.email}>\n${r.summary}\n> ${r.body.slice(0, 400).replace(/\n/g, "\n> ")}`);
+        if (r.suggested_reply) console.log(`\nSuggested reply:\n${r.suggested_reply}`);
+      }
+      break;
+    case "handled":
+      await markHandled(Number(a[0]));
+      console.log("ok");
+      break;
+    case "followups":
+      console.log(`${await draftFollowups(Number(a[0]))} follow-ups drafted`);
       break;
     case "serve":
       serve();

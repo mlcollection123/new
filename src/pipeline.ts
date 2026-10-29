@@ -72,7 +72,7 @@ export async function writeDrafts(id: number): Promise<number> {
 
 export async function listDrafts(id: number) {
   const { rows } = await pool.query(
-    `SELECT m.id, m.subject, m.body, m.status, l.email, l.company, l.score
+    `SELECT m.id, m.step, m.subject, m.body, m.status, l.email, l.company, l.score
      FROM messages m JOIN leads l ON l.id=m.lead_id
      WHERE l.campaign_id=$1 AND m.status='draft' ORDER BY l.score DESC`,
     [id],

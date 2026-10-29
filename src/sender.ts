@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
 import { config } from "./config.js";
 import { pool } from "./db.js";
@@ -7,6 +8,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface Outgoing {
   id: number;
+  lead_id: number;
+  lead_status: string;
+  thread_ids: string[];
   email: string;
   first_name: string | null;
   subject: string | null;
@@ -49,10 +53,13 @@ export async function sendApproved(campaignId: number, live: boolean): Promise<{
   const remaining = Math.max(0, config.dailyCap - today[0].n);
 
   const { rows } = await pool.query(
-    `SELECT m.id, l.email, l.first_name, m.subject, m.body
+    `SELECT m.id, m.lead_id, l.status AS lead_status, l.email, l.first_name, m.subject, m.body,
+       ARRAY(SELECT p.message_id FROM messages p
+             WHERE p.lead_id=m.lead_id AND p.status='sent' AND p.step<m.step AND p.message_id IS NOT NULL
+             ORDER BY p.step) AS thread_ids
      FROM messages m JOIN leads l ON l.id=m.lead_id
      WHERE l.campaign_id=$1 AND m.status='approved' AND m.channel='email'
-     ORDER BY l.score DESC NULLS LAST, m.id LIMIT $2`,
+     ORDER BY m.step DESC, l.score DESC NULLS LAST, m.id LIMIT $2`,
     [campaignId, remaining],
   );
 
@@ -70,6 +77,11 @@ export async function sendApproved(campaignId: number, live: boolean): Promise<{
   let skipped = 0;
 
   for (const m of rows as Outgoing[]) {
+    if (m.lead_status === "replied" || m.lead_status === "closed") {
+      await pool.query("UPDATE messages SET status='rejected', error='lead replied or closed' WHERE id=$1", [m.id]);
+      skipped++;
+      continue;
+    }
     const { rowCount: suppressed } = await pool.query("SELECT 1 FROM suppression WHERE email=$1", [m.email]);
     if (suppressed) {
       await pool.query("UPDATE messages SET status='rejected', error='suppressed' WHERE id=$1", [m.id]);
@@ -90,7 +102,13 @@ export async function sendApproved(campaignId: number, live: boolean): Promise<{
 
     try {
       const link = unsubscribeUrl(m.email);
+      const messageId = `<${randomUUID()}@${config.fromEmail.split("@")[1]}>`;
+      const thread = m.thread_ids.length
+        ? { inReplyTo: m.thread_ids[m.thread_ids.length - 1], references: m.thread_ids }
+        : {};
       await transport.sendMail({
+        messageId,
+        ...thread,
         from: `"${config.senderName}" <${config.fromEmail}>`,
         to: m.email,
         subject: m.subject ?? "",
@@ -100,7 +118,8 @@ export async function sendApproved(campaignId: number, live: boolean): Promise<{
           "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         },
       });
-      await pool.query("UPDATE messages SET status='sent', sent_at=now() WHERE id=$1", [m.id]);
+      await pool.query("UPDATE messages SET status='sent', sent_at=now(), message_id=$2 WHERE id=$1", [m.id, messageId]);
+      await pool.query("UPDATE leads SET status='contacted' WHERE id=$1 AND status IN ('drafted','scored')", [m.lead_id]);
       sent++;
     } catch (e) {
       await pool.query("UPDATE messages SET status='failed', error=$2 WHERE id=$1", [m.id, e instanceof Error ? e.message : String(e)]);

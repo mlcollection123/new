@@ -45,3 +45,23 @@ CREATE TABLE IF NOT EXISTS suppression (
   reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS error TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_id TEXT;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS segment TEXT;
+
+-- lead status: new | scored | rejected | drafted | contacted | replied | closed
+CREATE TABLE IF NOT EXISTS replies (
+  id SERIAL PRIMARY KEY,
+  lead_id INT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  message_id TEXT NOT NULL UNIQUE,
+  received_at TIMESTAMPTZ,
+  subject TEXT,
+  body TEXT,
+  category TEXT NOT NULL,
+  summary TEXT,
+  suggested_reply TEXT,
+  handled BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

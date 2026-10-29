@@ -2,7 +2,7 @@
 
 Outbound prospecting agent. Each campaign has its own ICP and offer, stored in Postgres and editable at any time.
 
-Flow: source (Apollo) -> score (Claude vs ICP) -> write (Claude) -> human approval -> send (SMTP).
+Flow: source (Apollo) -> score (Claude vs ICP) -> write (Claude) -> human approval -> send (SMTP) -> replies (IMAP, Claude triage) -> follow-ups.
 
 ## Run
 
@@ -33,7 +33,20 @@ Any VPS with Docker (Namecheap VPS works). Shared hosting will not.
 - Run `npm run agent serve` on a public URL (PUBLIC_URL, behind HTTPS) so unsubscribe links work. Suppressed addresses are never sourced or sent again.
 - Run `send` from cron, for example once per morning. Raise DAILY_CAP slowly while the domain warms up.
 
+## Replies and follow-ups
+
+    npm run agent replies           # read inbox (last 14 days, read only), classify new replies
+    npm run agent inbox 1           # replies that need you, with a suggested answer
+    npm run agent handled <id>      # after you answered by hand
+    npm run agent followups 1       # draft due follow-ups, then review, approve, send as usual
+
+- Replies match a lead by the email thread headers, with the sender address as a fallback. Needs IMAP_HOST.
+- unsubscribe, not_interested and bounce: address suppressed, lead closed, pending drafts cancelled.
+- interested, not_now, objection, other: lead marked replied, follow-ups cancelled, suggested reply saved for you. The agent never answers replies on its own.
+- out_of_office: logged, sequence continues.
+- FOLLOWUP_DAYS=3,7 means two follow-ups, 3 days after the first email and 7 days after the second. The last one closes the loop politely.
+- Follow-ups send in the same email thread. A lead that replied never gets another email, even if a follow-up was already approved.
+- Cron suggestion: `replies` and `followups` every morning, then review, approve and `send --live`.
+
 ## Next
-- Reply handling and classification
-- Follow-up steps
 - LinkedIn: draft-only until you decide on the ban risk

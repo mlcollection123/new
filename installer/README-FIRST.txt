@@ -32,10 +32,19 @@ You do not need to write any code. Everything runs in your web browser.
    Open the Campaign page and create your campaign. Edit every "pitch" and "pain" line so it matches
    what you really sell. Emails can only be as good as these lines. Never claim results you cannot prove.
 
-6. EVERY DAY
-   The Today page shows what needs you and has a button for each step:
-   Find leads, Score leads, Write drafts.
-   Then open the Outbox: read each draft, edit if needed, and approve or reject.
+6. LEAD SOURCES
+   Apollo is built in (add its key in Settings). To add another leads API, open Sources, then
+   "Add a leads API": give its web address, your key, and which fields hold the email, name and so on.
+   Copy these from the provider's documentation, then press Test. You can also import a CSV list
+   (a file with an "email" column) on the same page. Every lead shows which source found it.
+
+7. EVERY DAY
+   The Today page shows what needs you and has a button for each step.
+   Find leads asks every source that is switched on.
+   Open Leads: click a lead to see everything the source returned, then choose who should get an email.
+   Only chosen leads get drafts. "Rate fit" is optional: Claude scores leads to help you choose,
+   it never rejects anyone.
+   Write drafts, then open the Outbox: read each draft, edit if needed, and approve or reject.
    Keyboard: A approve, R reject, E edit, J and K to move.
    Back on Today: Send approved emails. Use "Dry run" first to see what would go out.
    Later: Check replies. Replies that need you appear in Conversations with a suggested answer.

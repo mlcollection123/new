@@ -56,6 +56,7 @@ export async function todayView(x: Ctx, job: Job | undefined): Promise<string> {
   const sentSeries = series(await q("SELECT substr(m.sent_at,1,10) d, count(*) n FROM messages m JOIN leads l ON l.id=m.lead_id WHERE l.campaign_id=$1 AND m.status='sent' AND m.sent_at>=$2 GROUP BY d"));
   const replySeries = series(await q("SELECT substr(r.created_at,1,10) d, count(*) n FROM replies r JOIN leads l ON l.id=r.lead_id WHERE l.campaign_id=$1 AND r.created_at>=$2 GROUP BY d"));
 
+  const unrated = await num("SELECT count(*) n FROM leads WHERE campaign_id=$1 AND status='new' AND score IS NULL", [c]);
   const stages = await q("SELECT status, count(*) n FROM leads WHERE campaign_id=$1 GROUP BY status", [c]);
   const stageN = (s: string) => Number(stages.find((r) => r.status === s)?.n ?? 0);
 
@@ -80,8 +81,9 @@ export async function todayView(x: Ctx, job: Job | undefined): Promise<string> {
     cards.push(need("bad", "alert", "Finish setup", `Still missing: ${esc(missing.join(", "))}. Nothing can run until these are filled in.`, link("settings", "Open settings")));
   if (drafts) cards.push(need("wait", "flag", `${drafts} email${drafts === 1 ? "" : "s"} waiting for approval`, "Nothing sends until you approve it. Read them one at a time.", link("outbox", "Open the outbox")));
   if (unread) cards.push(need("bad", "alert", `${unread} repl${unread === 1 ? "y needs" : "ies need"} you`, "People answered. Read them and reply from your own mailbox.", link("conversations", "Read them")));
-  if (stageN("new")) cards.push(need("note", "flag", `${stageN("new")} new lead${stageN("new") === 1 ? "" : "s"} not scored yet`, "Claude checks each one against your campaign and rejects poor fits.", runForm(x, "score", "Score leads", { primary: true })));
-  if (stageN("scored")) cards.push(need("note", "flag", `${stageN("scored")} lead${stageN("scored") === 1 ? "" : "s"} ready for a draft`, "Claude writes one email per lead. You approve each before it can send.", runForm(x, "write", "Write drafts", { primary: true })));
+  if (stageN("new")) cards.push(need("note", "flag", `${stageN("new")} lead${stageN("new") === 1 ? "" : "s"} to review`, "Open each one to see everything the source returned, then choose who gets an email.", link("leads&f=new", "Review leads")));
+  if (unrated) cards.push(need("note", "flag", `${unrated} lead${unrated === 1 ? " has" : "s have"} no fit score`, "Optional. Claude rates how well each lead fits, to help you choose. It never rejects anyone.", runForm(x, "score", "Rate fit")));
+  if (stageN("chosen")) cards.push(need("good", "check", `${stageN("chosen")} chosen lead${stageN("chosen") === 1 ? "" : "s"} ready for a draft`, "Claude writes one email per chosen lead. You approve each before it can send.", runForm(x, "write", "Write drafts", { primary: true })));
   if (approved)
     cards.push(
       need("good", "check", `${approved} approved email${approved === 1 ? "" : "s"} ready to send`, `Up to ${config.dailyCap} go out per day. A dry run only shows what would be sent.`,
@@ -91,18 +93,18 @@ export async function todayView(x: Ctx, job: Job | undefined): Promise<string> {
   if (!cards.length) cards.push(need("good", "check", "You are all caught up", "Check the mailbox for new replies, or find more leads.", runForm(x, "replies", "Check replies")));
 
   const steps = [
-    ["source", "Find leads", "Search Apollo with this campaign's segments", '<input type="number" name="limit" value="10" min="1" max="100">'],
-    ["score", "Score leads", "Claude rejects leads that do not fit", ""],
-    ["write", "Write drafts", "One email per kept lead, for your approval", ""],
+    ["source", "Find leads", "Ask every switched-on source (Apollo and your own APIs) using this campaign's segments", '<input type="number" name="limit" value="10" min="1" max="100">'],
+    ["score", "Rate fit (optional)", "Claude scores new leads to help you choose. Never rejects.", ""],
+    ["write", "Write drafts", "One email per chosen lead, for your approval", ""],
     ["replies", "Check replies", "Reads the inbox, stops sequences for unsubscribes and bounces", ""],
     ["followups", "Draft follow-ups", "For leads who did not reply, on your schedule", ""],
   ]
     .map(([s, t, d, extra]) => `<div class="step"><div class="t"><b>${t}</b><span>${d}</span></div>${runForm(x, s, "Run", { extra })}</div>`)
     .join("");
 
-  const colors: Record<string, string> = { new: "var(--chart-muted)", scored: "var(--accent-line)", drafted: "var(--accent)", contacted: "var(--active)", replied: "var(--good)", closed: "var(--line-strong)", rejected: "var(--text-3)" };
+  const colors: Record<string, string> = { new: "var(--chart-muted)", chosen: "var(--accent-line)", drafted: "var(--accent)", contacted: "var(--active)", replied: "var(--good)", closed: "var(--line-strong)", skipped: "var(--text-3)" };
   const total = Math.max(1, stages.reduce((a, r) => a + Number(r.n), 0));
-  const order = ["new", "scored", "drafted", "contacted", "replied", "closed", "rejected"];
+  const order = ["new", "chosen", "drafted", "contacted", "replied", "closed", "skipped"];
   const bar = order.filter(stageN).map((s) => `<i style="width:${(stageN(s) / total) * 100}%;background:${colors[s]}"></i>`).join("");
   const legend = order
     .map((s) => `<li><span class="sw" style="background:${colors[s]}"></span>${STATUS_LABEL[s]}<span class="n">${stageN(s)}</span><span class="pct">${Math.round((stageN(s) / total) * 100)}%</span></li>`)
@@ -125,7 +127,7 @@ export async function todayView(x: Ctx, job: Job | undefined): Promise<string> {
 
 export async function outboxView(x: Ctx): Promise<string> {
   const { rows } = await pool.query(
-    `SELECT m.id, m.step, m.subject, m.body, l.first_name, l.last_name, l.title, l.email, l.company, l.domain, l.segment, l.score, l.score_reason
+    `SELECT m.id, m.step, m.subject, m.body, l.first_name, l.last_name, l.title, l.email, l.company, l.domain, l.segment, l.score, l.score_reason, l.website, l.industry, l.employees, l.city, l.country, l.linkedin_url, l.source
      FROM messages m JOIN leads l ON l.id=m.lead_id
      WHERE l.campaign_id=$1 AND m.status='draft' AND m.channel='email'
      ORDER BY l.score DESC NULLS LAST, m.id LIMIT 100`,
@@ -142,7 +144,7 @@ export async function outboxView(x: Ctx): Promise<string> {
     .map(
       (d, i) => `<article class="ob-pane" data-id="${d.id}"${i ? " hidden" : ""}>
 <div class="ob-to"><span>To</span><b>${esc(d.email)}</b><span class="tag">${d.step > 1 ? `Follow-up ${d.step - 1}` : "First email"}</span></div>
-<dl class="facts"><dt>Company</dt><dd>${esc(d.company)}</dd>${d.domain ? `<dt>Website</dt><dd>${esc(d.domain)}</dd>` : ""}<dt>Contact</dt><dd>${esc(fullName(d))}${d.title ? " · " + esc(d.title) : ""}</dd>${d.segment ? `<dt>Segment</dt><dd>${esc(d.segment)}</dd>` : ""}<dt>Fit score</dt><dd>${esc(d.score)} · ${esc(d.score_reason)}</dd></dl>
+<dl class="facts"><dt>Company</dt><dd>${esc(d.company)}</dd>${d.website || d.domain ? `<dt>Website</dt><dd>${esc(d.website || d.domain)}</dd>` : ""}${d.industry ? `<dt>Industry</dt><dd>${esc(d.industry)}${d.employees ? " · " + esc(d.employees) + " employees" : ""}</dd>` : ""}${d.city || d.country ? `<dt>Location</dt><dd>${esc([d.city, d.country].filter(Boolean).join(", "))}</dd>` : ""}<dt>Contact</dt><dd>${esc(fullName(d))}${d.title ? " · " + esc(d.title) : ""}</dd>${d.segment ? `<dt>Segment</dt><dd>${esc(d.segment)}</dd>` : ""}<dt>Fit score</dt><dd>${esc(d.score)} · ${esc(d.score_reason)}</dd></dl>
 <div class="view"><h2 class="ob-subject">${esc(d.subject)}</h2><div class="ob-text">${esc(d.body)}</div></div>
 <div class="edit" hidden><label>Subject</label><input type="text" name="subject" value="${esc(d.subject)}"><label>Message</label><textarea name="body">${esc(d.body)}</textarea></div>
 <div class="meta" style="margin-top:12px">Your name, postal address and the opt-out line are added when the email is sent.</div>

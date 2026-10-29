@@ -5,6 +5,14 @@ import type { Campaign, Lead } from "./types.js";
 
 let client: Anthropic | undefined;
 
+function leadLine(l: Lead): string {
+  const place = [l.city, l.country].filter(Boolean).join(", ");
+  const extra = [l.industry && `industry: ${l.industry}`, l.employees && `employees: ${l.employees}`, place && `location: ${place}`, l.description && `about: ${l.description.slice(0, 300)}`]
+    .filter(Boolean)
+    .join("; ");
+  return `Lead: ${l.first_name} ${l.last_name}, ${l.title} at ${l.company} (${l.domain})${extra ? `. ${extra}` : ""}`;
+}
+
 function segmentContext(c: Campaign, lead: Lead): string {
   const seg = c.icp.segments.find((s) => s.name === lead.segment);
   return seg ? `Segment: ${seg.name}\nPitch for this segment: ${seg.pitch}\nTheir pain: ${seg.pain}\n` : "";
@@ -36,7 +44,7 @@ export async function scoreLead(c: Campaign, lead: Lead): Promise<{ score: numbe
     'Reply with JSON only: {"score": 0-100, "reason": "one sentence"}.';
   const user =
     `Offer: ${c.offer}\nICP: ${JSON.stringify(c.icp)}\n${segmentContext(c, lead)}\n` +
-    `Lead: ${lead.first_name} ${lead.last_name}, ${lead.title} at ${lead.company} (${lead.domain})`;
+    leadLine(lead);
   return parseJson(await ask(system, user), ScoreSchema);
 }
 
@@ -50,7 +58,7 @@ export async function writeEmail(c: Campaign, lead: Lead): Promise<{ subject: st
   const user =
     `Offer: ${c.offer}\n${segmentContext(c, lead)}` +
     `Why this lead fits: ${c.icp.notes}\n` +
-    `Lead: ${lead.first_name} ${lead.last_name}, ${lead.title} at ${lead.company} (${lead.domain})`;
+    leadLine(lead);
   return parseJson(await ask(system, user), DraftSchema);
 }
 

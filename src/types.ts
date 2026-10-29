@@ -44,6 +44,16 @@ export interface RawLead {
   company?: string;
   domain?: string;
   linkedinUrl?: string;
+  phone?: string;
+  city?: string;
+  country?: string;
+  website?: string;
+  industry?: string;
+  employees?: string;
+  companyLinkedin?: string;
+  description?: string;
+  emailStatus?: string;
+  externalId?: string;
   raw?: unknown;
 }
 
@@ -58,5 +68,13 @@ export interface Lead {
   company: string | null;
   domain: string | null;
   linkedin_url: string | null;
+  phone: string | null;
+  city: string | null;
+  country: string | null;
+  website: string | null;
+  industry: string | null;
+  employees: string | null;
+  description: string | null;
+  source: string | null;
   score: number | null;
 }

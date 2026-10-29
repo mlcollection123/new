@@ -12,8 +12,9 @@ const USAGE = `Commands:
   campaign:create <name> <offer> <icp.json> [minScore]
   campaign:icp <id> <icp.json>      change targeting any time
   source <id> [limit]               pull leads from Apollo (sample data without a key)
-  score <id>                        Claude scores leads against the ICP
-  write <id>                        Claude drafts emails for kept leads
+  score <id>                        Claude rates how well unrated leads fit (never rejects)
+  choose <id> <minScore>            choose every new lead rated at or above minScore
+  write <id>                        Claude drafts emails for chosen leads
   review <id>                       list drafts
   approve <messageId|all> [campaignId]
   send <campaignId> [--live]        send approved emails (dry run unless --live)
@@ -44,10 +45,13 @@ async function main(): Promise<boolean> {
       console.log("icp updated");
       break;
     case "source":
-      console.log(`${await p.sourceLeads(Number(a[0]), Number(a[1] ?? 25))} new leads`);
+      console.log(await p.sourceLeads(Number(a[0]), Number(a[1] ?? 25)));
       break;
     case "score":
       console.log(await p.scoreLeads(Number(a[0])));
+      break;
+    case "choose":
+      console.log(`${await p.chooseAbove(Number(a[0]), Number(a[1] ?? 60))} leads chosen`);
       break;
     case "write":
       console.log(`${await p.writeDrafts(Number(a[0]))} drafts`);

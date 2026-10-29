@@ -1,7 +1,7 @@
 import { pool } from "./db.js";
 import { scoreLead, writeEmail } from "./llm.js";
-import { searchLeads } from "./providers/apollo.js";
-import { type Campaign, type Icp, IcpSchema, type Lead } from "./types.js";
+import { csvToLeads, runSources } from "./sources.js";
+import { type Campaign, type Icp, IcpSchema, type Lead, type RawLead } from "./types.js";
 
 export async function createCampaign(name: string, offer: string, icp: unknown, minScore = 60): Promise<number> {
   const parsed = IcpSchema.parse(icp);
@@ -28,42 +28,84 @@ export async function getCampaign(id: number): Promise<Campaign> {
   return { ...rows[0], icp: IcpSchema.parse(JSON.parse(rows[0].icp)) } as Campaign;
 }
 
-export async function sourceLeads(id: number, limit: number): Promise<number> {
-  const c = await getCampaign(id);
-  const found = await searchLeads(c.icp, limit);
+export async function addLeads(campaignId: number, leads: RawLead[], source: string): Promise<number> {
+  const c = await getCampaign(campaignId);
   let added = 0;
-  for (const l of found) {
-    const email = l.email.toLowerCase();
+  for (const l of leads) {
+    const email = l.email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) continue;
     if (l.domain && c.icp.excludeDomains.includes(l.domain)) continue;
     const { rowCount } = await pool.query(
-      `INSERT INTO leads (campaign_id,email,first_name,last_name,title,company,domain,linkedin_url,raw,segment)
-       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
+      `INSERT INTO leads (campaign_id,email,first_name,last_name,title,company,domain,linkedin_url,raw,segment,
+                          phone,city,country,website,industry,employees,company_linkedin,description,email_status,source,external_id)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
        WHERE NOT EXISTS (SELECT 1 FROM suppression WHERE email=$2)
        ON CONFLICT (campaign_id,email) DO NOTHING`,
-      [id, email, l.firstName, l.lastName, l.title, l.company, l.domain, l.linkedinUrl, l.raw ?? null, l.segment ?? null],
+      [campaignId, email, l.firstName, l.lastName, l.title, l.company, l.domain, l.linkedinUrl, l.raw ?? null, l.segment ?? null,
+        l.phone, l.city, l.country, l.website, l.industry, l.employees, l.companyLinkedin, l.description, l.emailStatus, source, l.externalId],
     );
     added += rowCount ?? 0;
   }
   return added;
 }
 
-export async function scoreLeads(id: number): Promise<{ kept: number; rejected: number }> {
+// Asks every enabled source for leads. They land as "new" so you can review and choose.
+export async function sourceLeads(id: number, limit: number): Promise<string> {
   const c = await getCampaign(id);
-  const { rows } = await pool.query("SELECT * FROM leads WHERE campaign_id=$1 AND status='new'", [id]);
-  let kept = 0;
-  let rejected = 0;
+  const results = await runSources(c.icp, limit);
+  if (!results.length) throw new Error("No lead sources are switched on. Turn one on in the Sources page.");
+  const lines: string[] = [];
+  let total = 0;
+  for (const r of results) {
+    if (r.error) {
+      lines.push(`${r.source}: failed. ${r.error}`);
+      continue;
+    }
+    const added = await addLeads(id, r.leads, r.source);
+    total += added;
+    lines.push(`${r.source}: ${r.leads.length} found, ${added} new`);
+  }
+  lines.push(`Total ${total} new leads to review.`);
+  if (total === 0 && results.every((r) => r.error)) throw new Error(lines.join("\n"));
+  return lines.join("\n");
+}
+
+export async function importCsv(id: number, text: string, segment?: string): Promise<string> {
+  const { leads, skipped } = csvToLeads(text, segment || undefined);
+  const added = await addLeads(id, leads, "CSV import");
+  return `${added} new leads imported, ${leads.length - added} already known or blocked, ${skipped} rows without a valid email.`;
+}
+
+// Optional help for choosing: Claude rates how well each unrated lead fits. It never rejects anyone.
+export async function scoreLeads(id: number): Promise<{ rated: number }> {
+  const c = await getCampaign(id);
+  const { rows } = await pool.query("SELECT * FROM leads WHERE campaign_id=$1 AND status='new' AND score IS NULL", [id]);
+  let rated = 0;
   for (const lead of rows as Lead[]) {
     const { score, reason } = await scoreLead(c, lead);
-    const status = score >= c.min_score ? "scored" : "rejected";
-    await pool.query("UPDATE leads SET score=$2, score_reason=$3, status=$4 WHERE id=$1", [lead.id, score, reason, status]);
-    status === "scored" ? kept++ : rejected++;
+    await pool.query("UPDATE leads SET score=$2, score_reason=$3 WHERE id=$1", [lead.id, score, reason]);
+    rated++;
   }
-  return { kept, rejected };
+  return { rated };
+}
+
+export async function setLeadStatus(ids: number[], status: "chosen" | "skipped" | "new"): Promise<number> {
+  let n = 0;
+  for (const id of ids) {
+    const { rowCount } = await pool.query("UPDATE leads SET status=$2 WHERE id=$1 AND status IN ('new','chosen','skipped')", [id, status]);
+    n += rowCount;
+  }
+  return n;
+}
+
+export async function chooseAbove(campaignId: number, minScore: number): Promise<number> {
+  const { rowCount } = await pool.query("UPDATE leads SET status='chosen' WHERE campaign_id=$1 AND status='new' AND score>=$2", [campaignId, minScore]);
+  return rowCount;
 }
 
 export async function writeDrafts(id: number): Promise<number> {
   const c = await getCampaign(id);
-  const { rows } = await pool.query("SELECT * FROM leads WHERE campaign_id=$1 AND status='scored'", [id]);
+  const { rows } = await pool.query("SELECT * FROM leads WHERE campaign_id=$1 AND status='chosen'", [id]);
   for (const lead of rows as Lead[]) {
     const { subject, body } = await writeEmail(c, lead);
     await pool.query(

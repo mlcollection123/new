@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS leads (
   raw TEXT,
   score INTEGER,
   score_reason TEXT,
-  -- new | scored | rejected | drafted | contacted | replied | closed
+  -- new (to review) | chosen | skipped | drafted | contacted | replied | closed
   status TEXT NOT NULL DEFAULT 'new',
   created_at TEXT NOT NULL DEFAULT ${NOW},
   UNIQUE (campaign_id, email)
@@ -44,6 +44,16 @@ CREATE TABLE IF NOT EXISTS messages (
   message_id TEXT,
   created_at TEXT NOT NULL DEFAULT ${NOW},
   UNIQUE (lead_id, step, channel)
+);
+
+CREATE TABLE IF NOT EXISTS sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'custom',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  config TEXT NOT NULL,
+  secret TEXT,
+  created_at TEXT NOT NULL DEFAULT ${NOW}
 );
 
 CREATE TABLE IF NOT EXISTS meta (

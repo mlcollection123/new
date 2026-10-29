@@ -7,15 +7,16 @@ import { draftFollowups } from "./followups.js";
 import { testImap, testSmtp } from "./health.js";
 import { currentJob, startJob } from "./jobs.js";
 import { BUILD } from "./version.js";
-import { approve, createCampaign, editDraft, reject, scoreLeads, sourceLeads, updateCampaign, writeDrafts } from "./pipeline.js";
+import { approve, chooseAbove, createCampaign, editDraft, getCampaign, importCsv, reject, scoreLeads, setLeadStatus, sourceLeads, updateCampaign, writeDrafts } from "./pipeline.js";
 import { markHandled, markUnhandled, processReplies } from "./replies.js";
 import { sendApproved } from "./sender.js";
+import { deleteSource, listSources, saveSource, setSourceEnabled, testSource, type CustomConfig } from "./sources.js";
 import { saveSettings, FIELDS } from "./settings.js";
 import { shell } from "./ui/kit.js";
-import { activityView, campaignView, helpView, leadsView, settingsView } from "./ui/more.js";
+import { activityView, campaignView, helpView, leadsView, settingsView, sourcesView } from "./ui/more.js";
 import { conversationsView, outboxView, todayView } from "./ui/work.js";
 
-const TABS = ["today", "outbox", "conversations", "leads", "campaign", "activity", "settings", "help"] as const;
+const TABS = ["today", "outbox", "conversations", "leads", "sources", "campaign", "activity", "settings", "help"] as const;
 type Tab = (typeof TABS)[number];
 
 // Without a password the dashboard is localhost only, and the token secret is random per start.
@@ -39,15 +40,15 @@ async function readForm(req: IncomingMessage): Promise<URLSearchParams> {
   const chunks: Buffer[] = [];
   for await (const ch of req) {
     size += (ch as Buffer).length;
-    if (size > 400_000) throw new Error("body too large");
+    if (size > 3_000_000) throw new Error("body too large");
     chunks.push(ch as Buffer);
   }
   return new URLSearchParams(Buffer.concat(chunks).toString());
 }
 
 const STEPS: Record<string, (c: number, f: URLSearchParams) => Promise<unknown>> = {
-  source: (c, f) => sourceLeads(c, Math.min(100, Math.max(1, Number(f.get("limit")) || 10))).then((n) => `${n} new leads`),
-  score: (c) => scoreLeads(c),
+  source: (c, f) => sourceLeads(c, Math.min(100, Math.max(1, Number(f.get("limit")) || 10))),
+  score: (c) => scoreLeads(c).then((r) => `${r.rated} leads rated`),
   write: (c) => writeDrafts(c).then((n) => `${n} drafts written`),
   send_dry: (c) => sendApproved(c, false),
   send_live: (c) => sendApproved(c, true),
@@ -56,6 +57,8 @@ const STEPS: Record<string, (c: number, f: URLSearchParams) => Promise<unknown>>
 };
 
 // ---------- Server ----------
+
+let lastTest = "";
 
 const flashUrl = (c: number, tab: string, msg: string) => `/?c=${c}&tab=${tab}&msg=${encodeURIComponent(msg)}`;
 
@@ -94,6 +97,59 @@ async function post(url: URL, f: URLSearchParams, req: IncomingMessage, res: Ser
         await markUnhandled(id);
         go = `/?c=${c}&tab=conversations&f=${encodeURIComponent(f.get("f") ?? "needs")}`;
         break;
+      case "/leads/bulk": {
+        const act = f.get("act") ?? "";
+        const one = (f.get("act1") ?? "").split(":");
+        let msg: string;
+        if (one.length === 2) {
+          await setLeadStatus([Number(one[1])], one[0] === "choose" ? "chosen" : "skipped");
+          msg = one[0] === "choose" ? "Lead chosen." : "Lead skipped.";
+        } else if (act === "chooseabove") {
+          const min = Number((await getCampaign(c)).min_score);
+          msg = `${await chooseAbove(c, min)} leads chosen (rated ${min} or higher).`;
+        } else {
+          const ids = f.getAll("ids").map(Number).filter(Boolean);
+          const to = act === "choose" ? "chosen" : act === "skip" ? "skipped" : "new";
+          msg = `${await setLeadStatus(ids, to)} leads moved to ${to === "new" ? "review" : to}.`;
+        }
+        const back = f.get("back") ?? "";
+        go = (back.startsWith("/?") ? back : flashUrl(c, "leads", "")) + "&msg=" + encodeURIComponent(msg);
+        break;
+      }
+      case "/leads/import":
+        go = flashUrl(c, "sources", await importCsv(c, f.get("text") ?? "", f.get("segment") ?? undefined));
+        break;
+      case "/sources/save": {
+        const parse = (name: string, text: string) => {
+          try { return JSON.parse(text || "{}"); } catch { throw new Error(`"${name}" is not valid JSON. Check the commas and quotes.`); }
+        };
+        const cfg: CustomConfig = {
+          method: f.get("method") === "POST" ? "POST" : "GET",
+          url: (f.get("url") ?? "").trim(),
+          headers: parse("Headers", f.get("headers") ?? ""),
+          body: f.get("body") ?? "",
+          resultsPath: (f.get("resultsPath") ?? "").trim(),
+          fields: parse("Field mapping", f.get("fields") ?? ""),
+        };
+        await saveSource(f.get("name") ?? "", cfg, f.get("secret") ?? "");
+        go = flashUrl(c, "sources", "Source added. Press Test to check it.");
+        break;
+      }
+      case "/sources/toggle":
+        await setSourceEnabled(f.get("sid") === "apollo" ? "apollo" : Number(f.get("sid")), f.get("on") === "1");
+        go = flashUrl(c, "sources", "");
+        break;
+      case "/sources/delete":
+        await deleteSource(Number(f.get("sid")));
+        go = flashUrl(c, "sources", "Source deleted.");
+        break;
+      case "/sources/test": {
+        const src = (await listSources()).find((s) => s.id === Number(f.get("sid")));
+        if (!src) throw new Error("Source not found");
+        lastTest = `${src.name}: ` + (await testSource(src, (await getCampaign(c)).icp).catch((e) => `Failed. ${e instanceof Error ? e.message : e}`));
+        go = flashUrl(c, "sources", "");
+        break;
+      }
       case "/run": {
         const step = f.get("step") ?? "";
         const fn = STEPS[step];
@@ -189,11 +245,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const asked = q.get("tab") as Tab | null;
   let tab: Tab = asked && TABS.includes(asked) ? asked : c ? "today" : "campaign";
   if (!c && !["campaign", "settings", "help", "activity"].includes(tab)) tab = "campaign";
+  const testMsg = tab === "sources" ? lastTest : "";
+  if (tab === "sources") lastTest = "";
 
   const x = { c, token: csrf() };
   const job = currentJob();
   const scalar = async (sql: string) => (c ? Number((await pool.query(sql, [c])).rows[0].n) : 0);
   const drafts = await scalar("SELECT count(*) n FROM messages m JOIN leads l ON l.id=m.lead_id WHERE l.campaign_id=$1 AND m.status='draft'");
+  const toReview = await scalar("SELECT count(*) n FROM leads WHERE campaign_id=$1 AND status='new'");
   const unread = await scalar("SELECT count(*) n FROM replies r JOIN leads l ON l.id=r.lead_id WHERE l.campaign_id=$1 AND r.handled=0");
 
   let body: string;
@@ -201,7 +260,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     case "today": body = await todayView(x, job); break;
     case "outbox": body = await outboxView(x); break;
     case "conversations": body = await conversationsView(x, q.get("f") ?? "needs"); break;
-    case "leads": body = await leadsView(x, q.get("f") ?? "all", q.get("q") ?? ""); break;
+    case "leads": body = await leadsView(x, q.get("f") ?? "all", q.get("q") ?? "", q.get("src") ?? "", Math.max(0, Number(q.get("p")) || 0)); break;
+    case "sources": body = await sourcesView(x, testMsg); break;
     case "campaign": body = await campaignView(x); break;
     case "activity": body = c ? await activityView(x) : '<div class="card empty">Create a campaign first.</div>'; break;
     case "settings": body = settingsView(x); break;
@@ -212,7 +272,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   res.end(
     shell({
       c, tab, campaigns,
-      counts: { today: drafts + unread, outbox: drafts, convo: unread },
+      counts: { today: drafts + unread, outbox: drafts, convo: unread, leads: toReview },
       paused: (await getMeta("paused")) === "1",
       running: job?.status === "running",
       msg: q.get("msg") ?? "",

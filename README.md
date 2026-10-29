@@ -2,7 +2,7 @@
 
 Outbound prospecting agent. Each campaign has its own targeting (segments with a pitch and pain point each), stored locally and editable at any time.
 
-Flow: find leads (Apollo) -> score (Claude) -> write drafts (Claude) -> you review and approve -> send (SMTP) -> read replies (IMAP, Claude triage) -> follow-ups.
+Flow: find leads (Apollo, your own APIs, CSV) -> you review every detail and choose -> write drafts (Claude) -> you approve each draft -> send (SMTP) -> read replies (IMAP, Claude triage) -> follow-ups.
 The agent never sends anything you have not approved and never answers replies on its own.
 
 ## Install (no coding)
@@ -20,9 +20,13 @@ Needs Node 22.13 or newer. Data lives in `data/agent.db` (SQLite) and settings i
 
 CLI (same data as the dashboard): `campaign:create`, `campaign:icp`, `source`, `score`, `write`, `review`, `approve`, `send [--live]`, `replies`, `inbox`, `handled`, `followups`, `suppress`, `serve`. Run `npm run agent` for usage.
 
+## Lead sources
+
+Apollo is built in. The Sources page adds any JSON leads API: URL, headers, body with placeholders (`{{key}}`, `{{limit}}`, `{{titles_json}}`, ...), where the list of people is in the response, and a field mapping. A source that fails never stops the others. CSV lists import on the same page. Leads arrive as "To review"; only leads you choose get drafts. The optional fit score never rejects anyone.
+
 ## Screens
 
-Today (what needs you, one button per step), Outbox (approve, edit or reject each draft, keyboard driven), Conversations (replies with suggested answers), Leads, Campaign, Activity, Settings, Help. Light and dark. The visual design is adapted from Harvey (MIT), see `THIRD-PARTY-NOTICES.md`.
+Today (what needs you, one button per step), Leads (full details per lead, choose or skip), Sources, Outbox (approve, edit or reject each draft, keyboard driven), Conversations (replies with suggested answers), Campaign, Activity, Settings, Help. Light and dark. The visual design is adapted from Harvey (MIT), see `THIRD-PARTY-NOTICES.md`.
 
 ## Behaviour worth knowing
 

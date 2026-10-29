@@ -18,6 +18,7 @@ const ICONS: Record<string, string> = {
   alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   moon: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
+  plug: '<path d="M9 3v5M15 3v5M6 8h12v4a6 6 0 01-12 0zM12 18v3"/>',
   refresh: '<path d="M20 11a8 8 0 00-14-4M4 4v4h4M4 13a8 8 0 0014 4M20 20v-4h-4"/>',
 };
 
@@ -60,13 +61,13 @@ export const CATEGORY_TONE: Record<string, string> = {
 };
 
 export const STATUS_LABEL: Record<string, string> = {
-  new: "New",
-  scored: "Scored",
+  new: "To review",
+  chosen: "Chosen",
+  skipped: "Skipped",
   drafted: "Drafted",
   contacted: "Contacted",
   replied: "Replied",
   closed: "Closed out",
-  rejected: "Rejected",
 };
 
 export interface Ctx {
@@ -84,7 +85,7 @@ export interface ShellOpts {
   c: number;
   tab: string;
   campaigns: { id: number; name: string }[];
-  counts: { today: number; outbox: number; convo: number };
+  counts: { today: number; outbox: number; convo: number; leads: number };
   paused: boolean;
   running: boolean;
   msg: string;
@@ -93,7 +94,7 @@ export interface ShellOpts {
 
 const NAV: { label: string; items: [string, string, string, keyof ShellOpts["counts"] | null][] }[] = [
   { label: "Work", items: [["today", "Today", "home", "today"], ["outbox", "Outbox", "inbox", "outbox"], ["conversations", "Conversations", "message", "convo"]] },
-  { label: "Pipeline", items: [["leads", "Leads", "users", null], ["campaign", "Campaign", "send", null]] },
+  { label: "Pipeline", items: [["leads", "Leads", "users", "leads"], ["sources", "Sources", "plug", null], ["campaign", "Campaign", "send", null]] },
   { label: "System", items: [["activity", "Activity", "activity", null], ["settings", "Settings", "settings", null], ["help", "Help", "help", null]] },
 ];
 
